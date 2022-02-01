@@ -1,0 +1,14 @@
+{
+  "filterCriteria": [
+    {
+      "field": "accountHolderId",
+      "operator": "EQUALS",
+      "value": cml.header('idValueTrimmed')
+    },
+    {
+      "field":"accountState",
+      "operator":"IN",
+      "values":["ACTIVE","ACTIVE_IN_ARREARS"]
+    }
+  ]
+}

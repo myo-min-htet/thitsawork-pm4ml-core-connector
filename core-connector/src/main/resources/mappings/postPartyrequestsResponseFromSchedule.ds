@@ -1,0 +1,71 @@
+local getLoanByIdResponse = cml.exchangeProperty('getLoanByIdResponse')[0];
+
+local getClientByIdResponse = cml.exchangeProperty('getClientByIdResponse');
+local formatDate(dateStr) = DS.ZonedDateTime.format(dateStr, "yyyy-MM-dd'T'HH:mm:ssZ", "yyyy-MM-dd");
+
+local getLoanScheduleByIdResponse = payload;
+
+local loanSchedule = getLoanScheduleByIdResponse.installments;
+local partiallyPaidInstallments = std.filter(function(i) i.state == "PARTIALLY_PAID", loanSchedule);
+local pendingInstallments = std.filter(function(i) i.state == "PENDING", loanSchedule);
+
+local calcTotalDue(installment) =
+  installment.principal.amount.expected +
+  installment.interest.amount.expected +
+  installment.fee.amount.expected +
+  installment.penalty.amount.expected;
+
+local calcTotalDueAfterPaidAmount(installment) =
+  (installment.principal.amount.expected +
+  installment.interest.amount.expected +
+  installment.fee.amount.expected +
+  installment.penalty.amount.expected)
+  -
+  (installment.principal.amount.paid +
+  installment.interest.amount.paid +
+  installment.fee.amount.paid +
+  installment.penalty.amount.paid);
+
+local amountDue = if (partiallyPaidInstallments != [])
+                    then std.toString(calcTotalDueAfterPaidAmount(partiallyPaidInstallments[0]))
+                  else if (pendingInstallments != [])
+                    then std.toString(calcTotalDue(pendingInstallments[0]))
+                  else
+                    "0";
+
+local dueDate = if (partiallyPaidInstallments != [])
+                    then std.substr(partiallyPaidInstallments[0].dueDate, 0, 10)
+                else if (pendingInstallments != [])
+                    then std.substr(pendingInstallments[0].dueDate, 0, 10)
+                else "";
+
+local extensionList = std.filter(function(item) item != null, [
+  {
+    key: "mfiName",
+    value: cml.header('mfiName')
+  },
+  {
+    key: "amountDue",
+    value: amountDue
+  },
+  {
+    key: "dueDate",
+    value: dueDate
+  }
+]);
+
+{
+type: "CONSUMER",
+  idType: cml.header('idType'),
+  idValue: cml.header('idValue'),
+  idSubValue: cml.header('idSubValue'),
+  [if (std.objectHas(getClientByIdResponse, "firstName") && getClientByIdResponse.firstName != null)
+   then "firstName"]: getClientByIdResponse.firstName,
+  [if (std.objectHas(getClientByIdResponse, "lastName") && getClientByIdResponse.lastName != null)
+   then "lastName"]: getClientByIdResponse.lastName,
+  [if (std.objectHas(getClientByIdResponse, "firstName") && getClientByIdResponse.firstName != null) &&
+  (std.objectHas(getClientByIdResponse, "lastName") && getClientByIdResponse.lastName != null)
+  then "displayName"]:getClientByIdResponse.firstName +" "+ getClientByIdResponse.lastName,
+  [if (extensionList != [])
+   then "extensionList"]: extensionList
+}
