@@ -1,0 +1,24 @@
+{
+    "from": {
+        "idType": "ACCOUNT_ID",
+        "idValue": payload.accountNo,
+        "extensionList": [
+                  {
+                    "key": "mfiName",
+                    "value": payload.orgName
+                  }
+            ]
+        },
+    "to": {
+       "type": payload.payeeType,
+       "idType": payload.accountType,
+       "idValue": payload.accountNo,
+       "fspId": payload.toFspID
+        },
+    "amountType": "SEND",
+    "transactionType": "TRANSFER",
+    "note": payload.referenceNote,
+    "amount": payload.amount,
+    "currency": payload.currency,
+    "homeTransactionId": payload.paymentTransactionID
+}

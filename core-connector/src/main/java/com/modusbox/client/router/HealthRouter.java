@@ -8,8 +8,6 @@ import org.apache.camel.builder.RouteBuilder;
 
 public class HealthRouter extends RouteBuilder {
 
-	private final RouteExceptionHandlingConfigurer exceptionHandlingConfigurer = new RouteExceptionHandlingConfigurer();
-
 	private static final String TIMER_NAME = "histogram_get_health_timer";
 
 	public static final Counter reqCounter = Counter.build()
@@ -22,12 +20,14 @@ public class HealthRouter extends RouteBuilder {
 		.help("Request latency in seconds for GET /health.")
 		.register();
 
+	private final RouteExceptionHandlingConfigurer exceptionHandlingConfigurer = new RouteExceptionHandlingConfigurer();
+
     public void configure() {
 
-		// Add our global exception handling strategy
 		exceptionHandlingConfigurer.configureExceptionHandling(this);
+		//new ExceptionHandlingRouter(this);
 
-		from("direct:getHealth").routeId("com.modusbox.getHealth").doTry()
+        from("direct:getHealth").routeId("com.modusbox.getHealth").doTry()
 			.process(exchange -> {
 				reqCounter.inc(1); // increment Prometheus Counter metric
 				exchange.setProperty(TIMER_NAME, reqLatency.startTimer()); // initiate Prometheus Histogram metric

@@ -1,0 +1,5 @@
+{
+    "ProcessGUID": payload.processGUID,
+    "StateEnumID": cml.exchangeProperty('batchSateEnum'),
+    "IsSaveInMain": true
+}

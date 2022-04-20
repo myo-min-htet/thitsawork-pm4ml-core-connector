@@ -5,12 +5,12 @@ Feature: Core Connector Integration Tests
   Scenario: Exercise the POST /parties/{idType}/{idValue} endpoint and verify the results
     Given base application url in system property "application-base-url"
     Given POST body "this is a bad request"
-    Then send POST request with path "/parties/ACCOUNT_ID/001421431" to application
+    Then send POST request with path "/parties/ACCOUNT_ID/002000277055" to application
     Then verify the HTTP response code is 405
 
   Scenario: Exercise the GET /parties/{idType}/{idValue} endpoint and verify the results
     Given base application url in system property "application-base-url"
-    Then send GET request with path "/parties/ACCOUNT_ID/001421431" to application
+    Then send GET request with path "/parties/ACCOUNT_ID/002000277055" to application
     Then verify the HTTP response code is 200
     Then verify the body consists the field "idType"
     Then verify the body consists the field "idValue"
@@ -37,12 +37,12 @@ Feature: Core Connector Integration Tests
         "from":
         {
             "idType": "ACCOUNT_ID",
-            "idValue": "001421431"
+            "idValue": "002000277055"
         },
         "to":
         {
             "idType": "ACCOUNT_ID",
-            "idValue": "001421431"
+            "idValue": "002000277055"
         },
         "amountType": "SEND",
         "amount": 100.01,
@@ -81,12 +81,12 @@ Feature: Core Connector Integration Tests
       "from":
       {
           "idType": "ACCOUNT_ID",
-          "idValue": "001421431"
+          "idValue": "002000277055"
       },
       "to":
       {
           "idType": "ACCOUNT_ID",
-          "idValue": "001421431"
+          "idValue": "002000277055"
       },
       "currency": "MMK",
       "amount": 10

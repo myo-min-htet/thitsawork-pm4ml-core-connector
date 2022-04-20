@@ -1,0 +1,9 @@
+{
+    "PaymentTransactionID": cml.exchangeProperty('paymentTransactionID'),
+    "TransactionStateEnumID" : cml.exchangeProperty('TransactionStatus'),
+    "HubID": cml.exchangeProperty('hubID'),
+    "HubTransferID": cml.exchangeProperty('transferId'),
+    "HubStatus" : cml.exchangeProperty('acceptQuoteStatusCode'), //{StatusCode:3200, Description: Invalid OK$Account}
+    "HubHttpStatus" : cml.exchangeProperty('acceptQuoteStatusCode'),// 200, 500
+    "Note" : "test" //eg. Insufficient liquidity
+}

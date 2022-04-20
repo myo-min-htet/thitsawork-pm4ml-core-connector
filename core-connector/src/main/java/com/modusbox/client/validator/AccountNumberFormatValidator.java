@@ -15,8 +15,7 @@ public class AccountNumberFormatValidator implements Processor {
         String idType = (String) exchange.getIn().getHeader("idType");
         String loanAccount;
         if(idType.equalsIgnoreCase("ACCOUNT_ID")) {
-            loanAccount = (String) exchange.getIn().getHeader("idValueTrimmed");
-
+            loanAccount = (String) exchange.getIn().getHeader("idValue");
             String regex = exchange.getProperty("accountNumberFormat", "[0-9]+", String.class);
             Pattern pattern = Pattern.compile(regex);
 

@@ -11,12 +11,12 @@ public class DataValidator {
             throw new CCCustomException(ErrorCode.getErrorResponse(ErrorCode.PAYEE_LIMIT_ERROR, "Transfer amount cannot be zero value."));
         }
     }
-    public void validateInvalidAmount(String Amount) throws Exception {
-        System.out.println("Amount in validateInvalidAmount method:"+ Amount);
-        try {
-            Integer intAmount = Integer.parseInt(Amount);
-        } catch (NumberFormatException e) {
-            throw new CCCustomException(ErrorCode.getErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, "Invalid transfer amount."));
+    public void validateRounding(String Amount, String roundingValue) throws Exception{
+        System.out.println("Amount in request body:"+ Amount);
+        System.out.println("Constant Rounding Value:"+ roundingValue);
+
+        if ((Float.parseFloat(Amount) % Short.parseShort(roundingValue)) != 0) {
+            throw new CCCustomException(ErrorCode.getErrorResponse(ErrorCode.ROUNDING_VALUE_ERROR, ErrorCode.ROUNDING_VALUE_ERROR.getDefaultMessage().replace("XXXX",roundingValue)));
         }
     }
 }

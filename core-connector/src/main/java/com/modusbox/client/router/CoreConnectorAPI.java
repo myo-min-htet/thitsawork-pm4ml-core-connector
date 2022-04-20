@@ -12,16 +12,29 @@ import javax.annotation.Generated;
 @Generated("org.apache.camel.generator.openapi.PathGenerator")
 public final class CoreConnectorAPI extends RouteBuilder {
 
+    /**
+     * Defines Apache Camel routes using REST DSL fluent API.
+     */
     private final RouteExceptionHandlingConfigurer exceptionHandlingConfigurer = new RouteExceptionHandlingConfigurer();
 
     public void configure() {
 
-        // Add our global exception handling strategy
-        exceptionHandlingConfigurer.configureExceptionHandling(this);
+        CamelErrorProcessor errorProcessor = new CamelErrorProcessor();
+        //new ExceptionHandlingRouter(this);
+        onException(Exception.class)
+                //.logContinued(true).logRetryAttempted(true).logExhausted(true).logStackTrace(true)
+                //.retryAttemptedLogLevel(LoggingLevel.INFO).retriesExhaustedLogLevel(LoggingLevel.INFO)
+                //.maximumRedeliveries(3).redeliveryDelay(250).backOffMultiplier(2).useExponentialBackOff()
 
-        // In this case the GET parties will return the loan account with client details
+                .handled(true)
+                .log("-- processing error")
+                .process(errorProcessor)
+                .log("-- error processing complete")
+        ;
+
         from("cxfrs:bean:api-rs-server?bindingStyle=SimpleConsumer")
                 .to("bean-validator://x")
                 .toD("direct:${header.operationName}");
+
     }
 }

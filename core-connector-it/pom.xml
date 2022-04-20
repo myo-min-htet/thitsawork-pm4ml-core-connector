@@ -6,7 +6,7 @@
 
     <parent>
         <groupId>com.modusbox</groupId>
-        <artifactId>mambu-pm4ml-core-connector</artifactId>
+        <artifactId>thitsaworks-pm4ml-core-connector</artifactId>
         <version>1.0.0-SNAPSHOT</version>
     </parent>
 
@@ -148,7 +148,7 @@
                             </build>
                             <run>
                                 <ports>
-                                    <port>application-host-port:3002</port>
+                                    <port>application-host-port:3003</port>
                                 </ports>
                                 <network>
                                     <mode>custom</mode>
@@ -194,7 +194,7 @@
                                 <property>
                                     <name>application-base-url</name>
                                     <!--suppress MavenModelInspection -->
-                                    <value>http://localhost:3002</value>
+                                    <value>http://localhost:3003</value>
                                 </property>
                             </systemProperties>
                         </configuration>

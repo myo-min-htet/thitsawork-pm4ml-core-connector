@@ -1,15 +1,17 @@
 package com.modusbox.client.processor;
 
 import com.modusbox.client.customexception.CCCustomException;
+import com.modusbox.client.customexception.CloseWrittenOffAccountException;
 import com.modusbox.client.enums.ErrorCode;
+import com.modusbox.client.utils.DataFormatUtils;
 import com.modusbox.log4j2.message.CustomJsonMessage;
 import com.modusbox.log4j2.message.CustomJsonMessageImpl;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
-import org.apache.camel.component.bean.validator.BeanValidationException;
 import org.apache.camel.http.base.HttpOperationFailedException;
 import org.apache.http.conn.ConnectTimeoutException;
-import org.json.JSONArray;
+import org.apache.http.conn.HttpHostConnectException;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.springframework.stereotype.Component;
 
@@ -28,11 +30,11 @@ public class CustomErrorProcessor implements Processor {
         String reasonText = "{ \"statusCode\": \"5000\"," +
                 "\"message\": \"Unknown\" }";
         String statusCode = "5000";
+
+        String CheckSteps = "";
         int httpResponseCode = 500;
 
         JSONObject errorResponse = null;
-
-        boolean errorFlag = false;
 
         String errorDescription = "Downstream API failed.";
         // The exception may be in 1 of 2 places
@@ -42,84 +44,92 @@ public class CustomErrorProcessor implements Processor {
         }
 
         if (exception != null) {
+            CheckSteps = "############### Exception is not null ############### \\r\\n";
             if (exception instanceof HttpOperationFailedException) {
+                CheckSteps += "############### HttpOperationFailedException ############### \\r\\n";
                 HttpOperationFailedException e = (HttpOperationFailedException) exception;
                 try {
                     if (null != e.getResponseBody()) {
+                        CheckSteps += "############### e.getResponseBody() is not null ############### \\r\\n";
+                        if (DataFormatUtils.isJSONValid(e.getResponseBody())) {
+                            CheckSteps += "############### valid Json ############### \\r\\n";
                         /* Below if block needs to be changed as per the error object structure specific to
                             CBS back end API that is being integrated in Core Connector. */
-                        JSONObject respObject = new JSONObject(e.getResponseBody());
-                        if (respObject.has("returnStatus")) {
-                            statusCode = String.valueOf(respObject.getInt("returnCode"));
-                            errorDescription = respObject.getString("returnStatus");
+                            JSONObject respObject = new JSONObject(e.getResponseBody());
+                            if (respObject.has("returnStatus")) {
+                                CheckSteps += "############### Contains returnStatus ############### \\r\\n";
+                                statusCode = String.valueOf(respObject.getInt("returnCode"));
+                                errorDescription = respObject.getString("returnStatus");
 
-                            if(e.getStatusCode() == 404 && statusCode.equals("301")) {
-                                errorFlag = true;
-                                errorResponse = new JSONObject(ErrorCode.getErrorResponse(ErrorCode.GENERIC_ID_NOT_FOUND,errorDescription));
+                            }
+                            // Disbursement Error Handling
+                            else if (respObject.has("message") && respObject.has("transferState")) {
+                                CheckSteps += "############### Contains message & transferState ############### \\r\\n";
+                                statusCode = String.valueOf(respObject.getInt("statusCode"));
+                                try {
+                                    errorDescription = respObject.getJSONObject("transferState").getJSONObject("lastError").getJSONObject("mojaloopError").getJSONObject("errorInformation").getString("errorDescription");
+                                } catch (JSONException ex) {
+                                    errorDescription = "Unknown - no mojaloopError message present";
+                                }
+                            }
+                            else if(e.getStatusCode() == 401 && respObject.has("error") && String.valueOf(respObject.getString("error")).equals("invalid_token"))
+                            {
+                                CheckSteps += "############### StatusCode 401 & Contains error ############### \\r\\n";
+                                statusCode = String.valueOf(ErrorCode.DESTINATION_COMMUNICATION_ERROR.getStatusCode());
+                                errorDescription = String.valueOf(respObject.getString("error_description"));
                             }
                             else
                             {
-                                errorResponse = new JSONObject(ErrorCode.getErrorResponse(ErrorCode.GENERIC_DOWNSTREAM_ERROR_PAYEE,"Generic error due to the Payee or Payee FSP."));
+                                CheckSteps += "############### Valid json but can't define error ############### \\r\\n";
+                                statusCode = String.valueOf(ErrorCode.DESTINATION_COMMUNICATION_ERROR.getStatusCode());
+                                errorDescription = ErrorCode.DESTINATION_COMMUNICATION_ERROR.getDefaultMessage();
                             }
-                        }
 
-                        else if (respObject.has("errors")) {
-                            JSONArray jsonArray = respObject.getJSONArray("errors");
-                            JSONObject errorObject = (JSONObject)jsonArray.get(0);
-                            statusCode = String.valueOf(errorObject.getInt("errorCode"));
-                            errorDescription = errorObject.getString("errorReason");
-                            if(statusCode.equals("110")) {
-                                errorFlag = true;
-                                errorResponse = new JSONObject(ErrorCode.getErrorResponse(ErrorCode.PAYEE_LIMIT_ERROR,errorDescription));
-                            }
-                            else if(statusCode.equals("4")){
-                                errorFlag = true;
-                                errorResponse= new JSONObject(ErrorCode.getErrorResponse(ErrorCode.MISSING_MANDATORY_ELEMENT,errorDescription));
-                            }
-                            else
+                        } else {
+                            if(statusCode.equals("504"))
                             {
-                                errorResponse = new JSONObject(ErrorCode.getErrorResponse(ErrorCode.GENERIC_DOWNSTREAM_ERROR_PAYEE,"Generic error due to the Payee or Payee FSP."));
+                                CheckSteps += "############### Gatway timeout ############### \\r\\n";
+                                statusCode = String.valueOf(ErrorCode.SERVER_TIMED_OUT.getStatusCode());
                             }
-                        }
-                        else
-                        {
-                            errorResponse = new JSONObject(ErrorCode.getErrorResponse(ErrorCode.GENERIC_DOWNSTREAM_ERROR_PAYEE,"Generic error due to the Payee or Payee FSP."));
+                            else {
+                                CheckSteps += "############### Invalid json format ############### \\r\\n";
+                                statusCode = String.valueOf(ErrorCode.MALFORMED_SYNTAX.getStatusCode());
+                            }
+                            errorDescription = String.valueOf(e.getResponseBody());
                         }
                     }
                 } finally {
-                    if (errorFlag) {
-                        httpResponseCode = errorResponse.getInt("errorCode");
-                        errorResponse = errorResponse.getJSONObject("errorInformation");
-                        statusCode = String.valueOf(errorResponse.getInt("statusCode"));
-                        errorDescription = errorResponse.getString("description");
-                    }
+                    CheckSteps += "############### Finally of HttpOperationFailedException ############### \\r\\n";
                     reasonText = "{ \"statusCode\": \"" + statusCode + "\"," +
                             "\"message\": \"" + errorDescription + "\"} ";
                 }
+            } else if (exception instanceof CloseWrittenOffAccountException) {
+                CheckSteps += "############### CloseWrittenOffAccountException ############### \\r\\n";
+                httpResponseCode = 200;
+                reasonText = "{\"idType\": \"" + (String) exchange.getIn().getHeader("idType") +
+                        "\",\"idValue\": \"" + (String) exchange.getIn().getHeader("idValue") +
+                        "\",\"idSubValue\": \"" + (String) exchange.getIn().getHeader("idSubValue") +
+                        "\",\"extensionList\": [{\"key\": \"errorMessage\",\"value\": \"" + exception.getMessage() +
+                        "\"}]}";
+
             } else {
                 try {
-                    if(exception instanceof CCCustomException)
-                    {
+                    CheckSteps += "############### Else TRY ############### \\r\\n";
+                    if (exception instanceof CCCustomException) {
+                        CheckSteps += "############### CCCustomException ############### \\r\\n";
                         errorResponse = new JSONObject(exception.getMessage());
-                    }
-                    else if(exception instanceof InternalServerErrorException)
-                    {
+                    } else if (exception instanceof InternalServerErrorException || exception instanceof JSONException) {
+                        CheckSteps += "############### InternalServerErrorException & JSONException ############### \\r\\n";
                         errorResponse = new JSONObject(ErrorCode.getErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR));
-                    }
-                    else if(exception instanceof ConnectTimeoutException || exception instanceof SocketTimeoutException || exception instanceof SocketException)
-                    {
+                    } else if (exception instanceof ConnectTimeoutException || exception instanceof SocketTimeoutException || exception instanceof HttpHostConnectException || exception instanceof SocketException) {
+                        CheckSteps += "############### ConnectTimeoutException & SocketTimeoutException & HttpHostConnectException & SocketException ############### \\r\\n";
                         errorResponse = new JSONObject(ErrorCode.getErrorResponse(ErrorCode.SERVER_TIMED_OUT));
+                    } else {
+                        CheckSteps += "############### Else TRY Else ############### \\r\\n";
+                        errorResponse = new JSONObject(ErrorCode.getErrorResponse(ErrorCode.GENERIC_DOWNSTREAM_ERROR_PAYEE));
                     }
-                    else if (exception instanceof java.lang.Exception || exception instanceof BeanValidationException)
-                    {
-                        errorResponse = new JSONObject(ErrorCode.getErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, "CC logical transformation error"));
-                    }
-                    else
-                    {
-                        errorResponse = new JSONObject(ErrorCode.getErrorResponse(ErrorCode.GENERIC_DOWNSTREAM_ERROR_PAYEE,"Generic error due to the Payee or Payee FSP."));
-                    }
-
                 } finally {
+                    CheckSteps += "############### Else TRY Finally ############### \\r\\n";
                     httpResponseCode = errorResponse.getInt("errorCode");
                     errorResponse = errorResponse.getJSONObject("errorInformation");
                     statusCode = String.valueOf(errorResponse.getInt("statusCode"));
@@ -131,6 +141,8 @@ public class CustomErrorProcessor implements Processor {
             customJsonMessage.logJsonMessage("error", String.valueOf(exchange.getIn().getHeader("X-CorrelationId")),
                     "Processing the exception at CustomErrorProcessor", null, null,
                     exception.getMessage());
+            System.out.println("Http Response Code" + httpResponseCode);
+            System.out.println(CheckSteps);
         }
 
         exchange.getMessage().setHeader(Exchange.HTTP_RESPONSE_CODE, httpResponseCode);
